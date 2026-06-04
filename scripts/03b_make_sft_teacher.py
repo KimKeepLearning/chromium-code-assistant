@@ -7,7 +7,6 @@ Uses any OpenAI-compatible API. Defaults to DeepSeek (China-friendly billing):
 Output: data/sft_teacher.jsonl
 """
 import json
-import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
@@ -23,7 +22,16 @@ Chromium engineer might ask. Focus on WHY the change was made, the architecture
 involved, and how it relates to evolution between Chrome milestones (R136 -> R148).
 If this is a vibe downstream change, make clear it is a company-specific
 customization layered on upstream Chromium.
-Return ONLY a JSON list: [{{"q": "...", "a": "..."}}].
+
+Output EXACTLY this format, nothing else (do NOT use JSON). Produce 2 pairs:
+###Q
+<question>
+###A
+<answer>
+###Q
+<question>
+###A
+<answer>
 
 COMMIT MESSAGE:
 {msg}
@@ -38,18 +46,16 @@ out_path = data_path("sft_teacher.jsonl")
 
 
 def extract_pairs(content):
-    """Robustly pull the JSON list of {q,a} out of a model reply."""
-    content = content.strip()
-    if content.startswith("```"):                 # strip ``` / ```json fences
-        content = re.sub(r"^```[a-zA-Z]*\n?|\n?```$", "", content).strip()
-    try:
-        data = json.loads(content)
-    except Exception:
-        m = re.search(r"\[.*\]", content, re.DOTALL)   # grab first [...] block
-        if not m:
-            return []
-        data = json.loads(m.group(0))
-    return [p for p in data if isinstance(p, dict) and "q" in p and "a" in p]
+    """Parse repeated ###Q / ###A blocks. Robust to any content in the answer."""
+    pairs = []
+    for chunk in content.strip().split("###Q")[1:]:   # each chunk: "<q> ###A <a>"
+        if "###A" not in chunk:
+            continue
+        q, a = chunk.split("###A", 1)
+        q, a = q.strip(), a.strip()
+        if q and a:
+            pairs.append({"q": q, "a": a})
+    return pairs
 
 
 def distill(c):

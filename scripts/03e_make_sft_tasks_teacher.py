@@ -7,7 +7,6 @@ feat/refactor/fix commits and vibe (downstream) ones — the generation signal.
 Output: data/sft_tasks_teacher.jsonl
 """
 import json
-import re
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from openai import OpenAI
@@ -19,13 +18,16 @@ client = OpenAI(base_url=dcfg.get("teacher_base_url") or None)
 
 PROMPT = """You are creating training data that teaches a model to DEVELOP and
 REFACTOR Chromium code in the project's own style. Given this real {kind} commit
-(message + diff), write ONE realistic developer interaction:
-- "q": a natural task a developer would type (e.g. "Add ...", "Refactor ...",
-  "Fix ..."), described from intent WITHOUT revealing the exact solution/diff.
-- "a": an ideal assistant answer that briefly explains the approach, then shows
-  the key code as full functions/snippets (with file paths), matching how this
-  commit actually solved it. Prefer real Chromium idioms.
-Return ONLY JSON: {{"q": "...", "a": "..."}}.
+(message + diff), write ONE realistic developer interaction.
+
+Output EXACTLY this format, nothing else (do NOT use JSON):
+###TASK
+<a natural task a developer would type, e.g. "Add ...", "Refactor ...", "Fix ...",
+described from intent WITHOUT revealing the exact solution/diff>
+###ANSWER
+<an ideal answer that briefly explains the approach, then shows the key code as
+full functions/snippets with file paths, matching how this commit solved it.
+Use real Chromium idioms. Code may contain any characters — no escaping needed.>
 
 COMMIT MESSAGE:
 {msg}
@@ -47,18 +49,16 @@ def is_generation_commit(c):
         ("add ", "implement", "introduce", "refactor", "fix", "support "))
 
 
-def extract_obj(content):
+def parse_delim(content):
+    """Split the ###TASK / ###ANSWER format. Robust to any code in the answer."""
     content = content.strip()
-    if content.startswith("```"):
-        content = re.sub(r"^```[a-zA-Z]*\n?|\n?```$", "", content).strip()
-    try:
-        o = json.loads(content)
-    except Exception:
-        m = re.search(r"\{.*\}", content, re.DOTALL)
-        if not m:
-            return None
-        o = json.loads(m.group(0))
-    return o if isinstance(o, dict) and "q" in o and "a" in o else None
+    if "###TASK" not in content or "###ANSWER" not in content:
+        return None
+    task = content.split("###TASK", 1)[1].split("###ANSWER", 1)[0].strip()
+    ans = content.split("###ANSWER", 1)[1].strip()
+    if not task or not ans:
+        return None
+    return {"q": task, "a": ans}
 
 
 def distill(c):
@@ -70,7 +70,7 @@ def distill(c):
         temperature=0.5,
         timeout=60,
     )
-    o = extract_obj(r.choices[0].message.content)
+    o = parse_delim(r.choices[0].message.content)
     if not o:
         return []
     return [{"messages": [
