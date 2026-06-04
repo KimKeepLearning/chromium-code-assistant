@@ -95,3 +95,22 @@ serve:
   model_url: http://localhost:11434/v1/chat/completions
   model_name: chromium-coder
   proxy_port: 9000
+
+# A/B eval (07_eval.py): same RAG context, different models. Lets you measure
+# whether the fine-tune actually beats base+RAG before investing in it.
+# Each system is called only if its endpoint is reachable (and key present);
+# unreachable ones are skipped, so you can run with whatever you have up.
+eval:
+  systems:
+    - name: base+RAG          # base model, NO fine-tune (the baseline to beat)
+      base_url: http://localhost:11434/v1
+      model: qwen2.5-coder:7b-instruct
+      api_key_env: null
+    - name: ft+RAG            # your fine-tuned model
+      base_url: http://localhost:11434/v1
+      model: chromium-coder
+      api_key_env: null
+    - name: frontier+RAG      # strong cloud model, identical RAG context (DeepSeek here)
+      base_url: https://api.deepseek.com
+      model: deepseek-chat
+      api_key_env: OPENAI_API_KEY

@@ -159,13 +159,24 @@ cd scripts && uvicorn 06_rag_server:app --port 9000
 ```
 Ask in the Continue panel: *"Why did RenderFrameHost lifetime handling change since 136?"*
 
-## Part 7 — Evaluate
+## Part 7 — Evaluate (A/B: is the fine-tune worth it?)
 ```bash
 cp data/eval_questions.example.json data/eval_questions.json   # edit with real Q/A
 cd scripts && python 07_eval.py
 ```
-Compare base / base+RAG / FT+RAG. Expect **base+RAG** to win on recall and
-**FT+RAG** to win on Chromium-idiomatic answers — that tells you the FT earns its keep.
+Retrieves the **same RAG context** per question and runs it through every reachable
+system in `config.eval.systems` — `base+RAG`, `ft+RAG`, `frontier+RAG` — so you
+compare *model quality at constant retrieval*. Prints a hit-rate/latency table and
+writes `data/eval_results.json` with every answer.
+
+**Run this BEFORE committing to fine-tuning.** It directly answers "do I need the
+fine-tune?": if `base+RAG` already satisfies you, the FT's ROI is low. Unreachable
+systems are auto-skipped, so you can start with just `base+RAG` + `frontier+RAG`
+(no trained model yet) to see the ceiling, then add `ft+RAG` after Part 4.
+
+Caveats: substring hit-rate undersells quality — **read the answers** in
+`eval_results.json`. And `frontier+RAG` is a strong model with single-shot RAG, not
+a tool-using agent; a real agent with live repo access could exceed it.
 
 ---
 
