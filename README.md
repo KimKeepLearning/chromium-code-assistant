@@ -27,9 +27,11 @@ chromium repo (R148 + history) ──► extract code + commits ──► RAG in
 | `scripts/common.py` | Config loader shared by all scripts. |
 | `scripts/01_setup_repo.sh` | Fetch mirror + milestone history. |
 | `scripts/02_extract_commits.py` | Commit msgs + diffs (R136→R148) → `data/commits.jsonl`. |
-| `scripts/03_make_sft_programmatic.py` | Free mechanical SFT pairs. |
-| `scripts/03b_make_sft_teacher.py` | Teacher-distilled SFT pairs (needs API key). |
-| `scripts/03c_finalize_dataset.py` | Merge/dedup/split → `data/train.json`, `data/eval.json`. |
+| `scripts/03_make_sft_programmatic.py` | Free "why" pairs (diff → rationale). |
+| `scripts/03b_make_sft_teacher.py` | Teacher "why"/architecture pairs (needs API key). |
+| `scripts/03d_make_sft_tasks_programmatic.py` | Free generation pairs (task → diff). |
+| `scripts/03e_make_sft_tasks_teacher.py` | Teacher generation pairs (task → code + explanation). |
+| `scripts/03c_finalize_dataset.py` | Merge/dedup/split all 4 → `data/train.json`, `data/eval.json`. |
 | `scripts/04_train.py` | QLoRA fine-tune (Unsloth) → `out/lora/`, `out/gguf/`. |
 | `scripts/05_build_rag.py` | Build Chroma index (`code_r148` + `evolution`). |
 | `scripts/06_rag_server.py` | OpenAI-compatible RAG proxy. |
@@ -89,14 +91,35 @@ Each commit keeps an `origin` field that flows into the dataset and RAG metadata
 the assistant can distinguish *"vibe customized this"* from *"upstream changed this."*
 
 ## Part 3 — Build the SFT dataset (hybrid)
+The dataset has **two skills**: *understanding* ("why did this change") and
+*generation* ("develop/refactor this"). Each has a free programmatic generator and
+a teacher-distilled one.
 ```bash
 cd scripts
-python 03_make_sft_programmatic.py             # free, mechanical
-export OPENAI_API_KEY=sk-...                    # teacher (set teacher_base_url in config for Claude)
-python 03b_make_sft_teacher.py                 # distilled reasoning/"why" pairs
-python 03c_finalize_dataset.py                 # -> data/train.json, data/eval.json
+export OPENAI_API_KEY=sk-...                    # teacher key (DeepSeek by default; see config)
+
+# understanding ("why")
+python 03_make_sft_programmatic.py             # free: diff -> rationale
+python 03b_make_sft_teacher.py                 # distilled: why/architecture Q&A
+
+# generation (develop / refactor / fix)
+python 03d_make_sft_tasks_programmatic.py      # free: task -> unified diff
+python 03e_make_sft_tasks_teacher.py           # distilled: task -> code + explanation
+
+python 03c_finalize_dataset.py                 # merge all 4 -> data/train.json, data/eval.json
 ```
-Aim for **5k–30k clean examples** for a first run. Quality > quantity.
+Aim for **5k–30k clean examples** for a first run. Quality > quantity. The task
+generators (03d/03e) are what teach the model to **write** Chromium code, not just
+explain it — without them the fine-tune only adapts *style*, and generation quality
+falls back to base-model + RAG.
+
+`03c` applies **per-source caps** (`dataset.source_caps`) so the bulky free
+generators don't drown the scarce teacher pairs, and prints the resulting mix:
+```
+Balance: why=11500 (60%)  generation=7400 (39%)  | teacher=6900 (36%)
+```
+Tune the caps if the split looks off (e.g. lower `sft_programmatic.jsonl` toward
+~4500 for a 50/50 why-vs-generation mix). Capping is seeded, so re-runs are stable.
 
 ## Part 4 — Fine-tune (QLoRA, ~11–13GB VRAM)
 ```bash

@@ -53,9 +53,18 @@ dataset:
   teacher_model: deepseek-chat                 # DeepSeek-V3; OpenAI-compatible, China-friendly billing
   teacher_base_url: https://api.deepseek.com   # set OPENAI_API_KEY to your DeepSeek key (sk-...)
   teacher_concurrency: 12         # parallel requests (DeepSeek allows high concurrency)
-  max_teacher_commits: 3000       # budget cap for API distillation
+  max_teacher_commits: 3000       # budget cap for "why" distillation (03b)
+  max_task_teacher_commits: 1500  # budget cap for task->code distillation (03e)
   max_diff_chars: 20000           # truncate giant diffs
   train_split: 0.97
+  # Per-source caps balance the mix so the bulky FREE generators don't swamp the
+  # scarce TEACHER pairs (which read more naturally). null / omit = keep all.
+  # Rough target after caps: ~half "why" / half generation; teacher pairs kept whole.
+  source_caps:
+    sft_programmatic.jsonl: 6000        # "why" (free, ~2/commit) — verbose, cap it
+    sft_teacher.jsonl: null             # "why" (teacher) — keep all
+    sft_tasks_programmatic.jsonl: 6000  # generation (free, task->diff) — cap it
+    sft_tasks_teacher.jsonl: null       # generation (teacher) — keep all
 
 train:
   base_model: unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit
