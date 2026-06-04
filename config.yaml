@@ -1,0 +1,65 @@
+# ── Chromium Code Assistant — central config ───────────────────────────────
+# Edit these once; every script reads from here (no env vars needed).
+
+repo:
+  # Absolute path to the chromium *src* checkout (your vibeus/chromium mirror).
+  # WSL tip: cloning inside WSL (~/src/...) is much faster than /mnt/c/...
+  path: ~/src/chromium/src
+  url: https://github.com/vibeus/chromium
+
+# Milestone anchors for the "evolution" signal. Use ACTUAL tags present in your
+# mirror — run:  git -C <repo.path> tag | grep -E '^(136|148)\.'
+versions:
+  from: "136.0.7103.113"   # earliest R136 tag you have  (the "before")
+  to:   "148.0.0.0"        # the R148 tip you track       (the "after")
+
+# Directories worth indexing/extracting first. The full tree is too big — start
+# focused, widen later. Paths are relative to repo.path.
+include_dirs:
+  - base
+  - content
+  - components
+  - mojo
+  - ui
+  - chrome/browser
+  - docs
+
+# Source extensions to index for RAG / diff extraction.
+extensions: [".cc", ".h", ".mojom", ".ts", ".js", ".md"]
+
+dataset:
+  teacher_model: gpt-4o-mini      # cheap distillation teacher
+  teacher_base_url: null          # set to a Claude/other OpenAI-compatible endpoint, or leave null for OpenAI
+  max_teacher_commits: 3000       # budget cap for API distillation
+  max_diff_chars: 20000           # truncate giant diffs
+  train_split: 0.97
+
+train:
+  base_model: unsloth/Qwen2.5-Coder-7B-Instruct-bnb-4bit
+  max_seq_len: 2048
+  lora_r: 32
+  lora_alpha: 32
+  batch_size: 2
+  grad_accum: 8
+  epochs: 2
+  learning_rate: 0.0002
+  output_dir: out
+  gguf_quant: q4_k_m
+
+rag:
+  db_path: rag_db
+  embed_model: BAAI/bge-base-en-v1.5
+  code_collection: code_r148
+  evolution_collection: evolution
+  chunk_size: 1500
+  chunk_overlap: 300
+  top_k_code: 6
+  top_k_evolution: 4
+
+serve:
+  # Upstream model endpoint the RAG proxy forwards to.
+  #   Ollama: http://localhost:11434/v1/chat/completions
+  #   vLLM:   http://localhost:8000/v1/chat/completions
+  model_url: http://localhost:11434/v1/chat/completions
+  model_name: chromium-coder
+  proxy_port: 9000

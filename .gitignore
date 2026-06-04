@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+cra/
+
+# Generated data & artifacts
+data/*.jsonl
+data/*.json
+!data/.gitkeep
+out/
+rag_db/
+*.gguf
+
+# Secrets
+.env

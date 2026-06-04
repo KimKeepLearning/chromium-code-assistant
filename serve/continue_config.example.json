@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy into ~/.continue/config.json (or merge the models entry). Points VS Code's Continue extension at the RAG proxy (06_rag_server.py).",
+  "models": [
+    {
+      "title": "Chromium Coder",
+      "provider": "openai",
+      "model": "chromium-coder",
+      "apiBase": "http://localhost:9000/v1",
+      "apiKey": "none"
+    }
+  ]
+}

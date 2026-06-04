@@ -1,0 +1,21 @@
+# Core
+pyyaml
+gitpython
+
+# Data / dataset
+tiktoken
+openai            # teacher distillation (works for OpenAI; set base_url for Claude-compatible)
+
+# RAG
+sentence-transformers
+chromadb
+fastapi
+uvicorn
+httpx
+pydantic
+
+# --- Training (install separately, inside WSL2, see README Part 0) ---
+# Unsloth pulls compatible torch / bitsandbytes / transformers, so install it
+# in its own step rather than pinning here:
+#   pip install "unsloth[cu121] @ git+https://github.com/unslothai/unsloth.git"
+#   pip install trl peft accelerate datasets

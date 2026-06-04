@@ -1,0 +1,7 @@
+# Part 6A (Ollama) — register the fine-tuned GGUF produced by 04_train.py.
+#   ollama create chromium-coder -f serve/Modelfile
+#   ollama run chromium-coder
+# Adjust the FROM path to the actual file under out/gguf/.
+FROM ../out/gguf/unsloth.Q4_K_M.gguf
+PARAMETER num_ctx 8192
+PARAMETER temperature 0.2
