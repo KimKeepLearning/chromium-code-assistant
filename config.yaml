@@ -4,14 +4,19 @@
 repo:
   # Absolute path to the chromium *src* checkout (your vibeus/chromium mirror).
   # WSL tip: cloning inside WSL (~/src/...) is much faster than /mnt/c/...
-  path: ~/src/chromium/src
+  path: ~/R148/chromium/src
   url: https://github.com/vibeus/chromium
 
-# Milestone anchors for the "evolution" signal. Use ACTUAL tags present in your
-# mirror — run:  git -C <repo.path> tag | grep -E '^(136|148)\.'
+# Milestone anchors for the "evolution" signal. Vibe uses milestone *branches*
+# (not Chromium tags): R148 is this year's default, R136 was last year's.
+# The range from_ref..to_ref captures both upstream Chromium evolution AND the
+# vibe downstream commits layered on top.
+#   List them with:  git -C <repo.path> branch -r | grep -E 'origin/R[0-9]+$'
 versions:
-  from: "136.0.7103.113"   # earliest R136 tag you have  (the "before")
-  to:   "148.0.0.0"        # the R148 tip you track       (the "after")
+  from_ref: "origin/R136"   # last year's default branch  (the "before")
+  to_ref:   "origin/R148"   # this year's default branch   (the "after")
+  label_from: "R136"        # short labels used in metadata/prompts
+  label_to:   "R148"
 
 # Directories worth indexing/extracting first. The full tree is too big — start
 # focused, widen later. Paths are relative to repo.path.
@@ -26,6 +31,23 @@ include_dirs:
 
 # Source extensions to index for RAG / diff extraction.
 extensions: [".cc", ".h", ".mojom", ".ts", ".js", ".md"]
+
+# Commit selection from the from_ref..to_ref range (170k+ raw commits — must filter).
+provenance:
+  # A commit is "official" (upstream Chromium) if its body has these markers OR
+  # its author email matches these domains; otherwise it's "vibe" (downstream).
+  official_body_markers: ["Cr-Commit-Position", "chromium-review.googlesource.com", "Cr-Original-Commit-Position"]
+  official_email_domains: ["@chromium.org", "@google.com"]
+  # Drop service-account / automation churn by EMAIL substring. NOTE: do NOT
+  # blanket-skip "[bot]" — github-actions[bot] is vibe's CI doing real R136->R148
+  # porting ("windows_streaming: ... (R148)"), which is prime evolution signal.
+  skip_email_patterns: ["autoroll", "luci-bisection", "swarming-tasks", "chops-service-accounts", "gserviceaccount.com"]
+  skip_subject_patterns: ["Roll ", "chore(DEPS)", "DEPS: roll", "Update V8 to", "Automatic update"]
+  keep_all_vibe: true             # keep EVERY vibe commit (the company-specific signal)
+  # SFT-ONLY cap: limits official commits that get diffs + teacher distillation.
+  # The evolution RAG index is DECOUPLED — it ingests ALL official messages
+  # (commits_all.jsonl), so this cap does NOT limit historical retrieval.
+  max_official_commits: 8000      # sampled (chronologically spread) for the fine-tune set
 
 dataset:
   teacher_model: gpt-4o-mini      # cheap distillation teacher

@@ -1,23 +1,34 @@
 #!/usr/bin/env bash
-# Part 1 — Fetch the chromium mirror with milestone history (R136..R148).
-# Reads repo.path / repo.url from config.yaml.
+# Part 1 — Verify/update the (existing) vibe chromium checkout and its milestone
+# branches. Reads repo.path and versions.* from config.yaml.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-REPO=$(python3 -c "import sys;sys.path.insert(0,'$ROOT/scripts');from common import load_config;print(load_config()['repo']['path'])")
-URL=$(python3 -c "import sys;sys.path.insert(0,'$ROOT/scripts');from common import load_config;print(load_config()['repo']['url'])")
+cfg() { python3 -c "import sys;sys.path.insert(0,'$ROOT/scripts');from common import load_config;print(load_config()$1)"; }
+REPO=$(cfg "['repo']['path']")
+FROM=$(cfg "['versions']['from_ref']")
+TO=$(cfg "['versions']['to_ref']")
 
 if [ ! -d "$REPO/.git" ]; then
-  echo ">> Cloning $URL -> $REPO (this is large; may take a while)"
-  git clone "$URL" "$REPO"
+  echo "!! No git repo at $REPO — set repo.path in config.yaml"; exit 1
 fi
 
-cd "$REPO"
-echo ">> Configuring milestone branch-heads fetch"
-git config --add remote.origin.fetch '+refs/branch-heads/*:refs/remotes/branch-heads/*' || true
-echo ">> Fetching tags & branch-heads"
-git fetch origin --tags
+echo ">> Fetching branches & tags (updates ${FROM} / ${TO})"
+git -C "$REPO" fetch origin --tags --prune
 
-echo ">> Milestone tags available (look for your from/to anchors):"
-git tag | grep -E '^(136|148)\.' || echo "   (none matched — check that your mirror carries milestone tags/branch-heads)"
-echo ">> Set versions.from / versions.to in config.yaml to actual tags above."
+echo ">> Milestone branches available:"
+git -C "$REPO" branch -r | grep -E 'origin/R[0-9]+$' || echo "   (none matched origin/R<NN>)"
+
+echo ">> Verifying configured anchors resolve:"
+for ref in "$FROM" "$TO"; do
+  if git -C "$REPO" rev-parse --verify -q "$ref" >/dev/null; then
+    echo "   OK  $ref -> $(git -C "$REPO" rev-parse --short "$ref")"
+  else
+    echo "   !!  $ref does NOT resolve — fix versions.* in config.yaml"; exit 1
+  fi
+done
+
+echo ">> Commit counts:"
+echo "   ${FROM}..${TO} (new in ${TO}): $(git -C "$REPO" rev-list --count "${FROM}..${TO}")"
+echo "   merge-base: $(git -C "$REPO" merge-base "$FROM" "$TO" | cut -c1-12)"
+echo ">> Ready. Next: python scripts/02_extract_commits.py"

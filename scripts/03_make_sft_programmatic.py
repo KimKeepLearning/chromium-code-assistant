@@ -11,16 +11,20 @@ from common import data_path
 SYS = "You are a Chromium engineering assistant."
 
 
+ORIGIN_LABEL = {"vibe": "vibe downstream", "official": "upstream Chromium"}
+
+
 def pairs():
     for line in open(data_path("commits.jsonl")):
         c = json.loads(line)
         msg = c["message"]
         subject = msg.splitlines()[0]
+        kind = ORIGIN_LABEL.get(c.get("origin", "official"), "Chromium")
 
         yield {"messages": [
             {"role": "system", "content": SYS},
             {"role": "user", "content":
-                f"Explain the intent of this Chromium change:\n\n```diff\n{c['diff'][:6000]}\n```"},
+                f"Explain the intent of this {kind} change:\n\n```diff\n{c['diff'][:6000]}\n```"},
             {"role": "assistant", "content": msg},
         ]}
 
