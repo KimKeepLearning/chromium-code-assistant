@@ -50,8 +50,9 @@ provenance:
   max_official_commits: 8000      # sampled (chronologically spread) for the fine-tune set
 
 dataset:
-  teacher_model: gpt-4o-mini      # cheap distillation teacher
-  teacher_base_url: null          # set to a Claude/other OpenAI-compatible endpoint, or leave null for OpenAI
+  teacher_model: deepseek-chat                 # DeepSeek-V3; OpenAI-compatible, China-friendly billing
+  teacher_base_url: https://api.deepseek.com   # set OPENAI_API_KEY to your DeepSeek key (sk-...)
+  teacher_concurrency: 12         # parallel requests (DeepSeek allows high concurrency)
   max_teacher_commits: 3000       # budget cap for API distillation
   max_diff_chars: 20000           # truncate giant diffs
   train_split: 0.97
