@@ -101,6 +101,13 @@ serve:
 # Each system is called only if its endpoint is reachable (and key present);
 # unreachable ones are skipped, so you can run with whatever you have up.
 eval:
+  # LLM-judge (enable with `python 07_eval.py --judge`): grades each answer 1-5 on
+  # correctness (vs the retrieved context) and idiom (how Chromium-native it reads).
+  # Far more informative than substring hits; costs a few DeepSeek tokens per answer.
+  judge:
+    base_url: https://api.deepseek.com
+    model: deepseek-chat
+    api_key_env: OPENAI_API_KEY
   systems:
     - name: base+RAG          # base model, NO fine-tune (the baseline to beat)
       base_url: http://localhost:11434/v1

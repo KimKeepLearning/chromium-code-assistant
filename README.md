@@ -162,12 +162,18 @@ Ask in the Continue panel: *"Why did RenderFrameHost lifetime handling change si
 ## Part 7 — Evaluate (A/B: is the fine-tune worth it?)
 ```bash
 cp data/eval_questions.example.json data/eval_questions.json   # edit with real Q/A
-cd scripts && python 07_eval.py
+cd scripts && python 07_eval.py            # substring hit-rate (cheap)
+python 07_eval.py --judge                  # + LLM-judge: 1-5 correctness & idiom
 ```
 Retrieves the **same RAG context** per question and runs it through every reachable
 system in `config.eval.systems` — `base+RAG`, `ft+RAG`, `frontier+RAG` — so you
-compare *model quality at constant retrieval*. Prints a hit-rate/latency table and
-writes `data/eval_results.json` with every answer.
+compare *model quality at constant retrieval*. Writes `data/eval_results.json` with
+every answer (and judge scores).
+
+`--judge` uses DeepSeek (`config.eval.judge`) to grade each answer **1–5 on
+correctness** (vs the retrieved context) and **idiom** (how Chromium-native it
+reads) — far more meaningful than substring hits, at a few tokens per answer. The
+judge grades answers anonymously (doesn't know which system produced them).
 
 **Run this BEFORE committing to fine-tuning.** It directly answers "do I need the
 fine-tune?": if `base+RAG` already satisfies you, the FT's ROI is low. Unreachable
